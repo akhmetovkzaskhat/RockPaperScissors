@@ -2,42 +2,59 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract RockPaperScissors{
-    uint8 public constant ROCK = 1;
-    uint8 public constant PAPER = 2;
-    uint8 public constant SCISSORS = 3;
-
-    mapping (uint8 => mapping (uint8 => int8)) outcomes;
-
-    event GameResult(address indexed player, uint8 playerChoice, address indexed opponent, uint8 opponentChoice, int8 result);
-
-    constructor() {
-        outcomes[ROCK][ROCK] = 0;
-        outcomes[ROCK][PAPER] = -1;
-        outcomes[ROCK][SCISSORS] = 1;
-        outcomes[PAPER][ROCK] = 1;
-        outcomes[PAPER][PAPER] = 0;
-        outcomes[PAPER][SCISSORS] = -1;
-        outcomes[SCISSORS][ROCK] = -1;
-        outcomes[SCISSORS][PAPER] = 1;
-        outcomes[SCISSORS][SCISSORS] = 0;
+contract RockPaperScissors {
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
     }
+    
+ 
+    address payable owner;
+    
 
-    function play(uint8 choice) public payable {
-        require(msg.value == 0.01 ether, "You must send 0.01 ether to play.");
-        require(choice == ROCK || choice == PAPER || choice == SCISSORS, "Invalid choice.");
-        uint8 botChoice = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty))) % 3 + 1);
-        int8 result = outcomes[choice][botChoice];
-        if (result == 1) {
-            payable(msg.sender).transfer(0.02 ether);
-        } else if (result == -1) {
-            address payable opponent = payable(tx.origin);
-            opponent.transfer(0.02 ether);
+    event GamePlayed(address player1, address player2, uint8 player1Choice, uint8 player2Choice, address winner);
+    
+    
+    constructor() payable {
+        owner = payable(msg.sender);
+    }
+    
+   
+    function playGame(uint8 player1Choice, uint8 player2Choice) public payable returns (address) {
+        
+        
+        require(player1Choice >= 1 && player1Choice <= 3 && player2Choice >= 1 && player2Choice <= 3, "Invalid choice");
+        
+        require(msg.value == 2 ether, "Please send 2 ether to play the game");
+        
+        address winner;
+        if (player1Choice == 1 && player2Choice == 2) {
+            winner = msg.sender;
+        } else if (player1Choice == 1 && player2Choice == 3) {
+            winner = address(this);
+        } else if (player1Choice == 2 && player2Choice == 1) {
+            winner = address(this);
+        } else if (player1Choice == 2 && player2Choice == 3) {
+            winner = msg.sender;
+        } else if (player1Choice == 3 && player2Choice == 1) {
+            winner = msg.sender;
+        } else if (player1Choice == 3 && player2Choice == 2) {
+            winner = address(this);
+        } else {
+            payable(msg.sender).transfer(msg.value / 2);
+            payable(address(this)).transfer(msg.value / 2);
+            return address(0);
         }
-        emit GameResult(msg.sender, choice, address(this), botChoice, result);
+        
+        payable(winner).transfer(msg.value);
+        
+        emit GamePlayed(msg.sender, address(this), player1Choice, player2Choice, winner);
+        
+        return winner;
     }
-
-    function getBalance() public view returns (uint256) {
-        return address(this).balance;
+    
+    function withdraw() public onlyOwner {
+        payable(owner).transfer(address(this).balance);
     }
 }
